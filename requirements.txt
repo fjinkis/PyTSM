@@ -1,0 +1,5 @@
+autopep8==1.5.7
+pycodestyle==2.7.0
+pydash==5.0.2
+PyYAML==5.4.1
+toml==0.10.2
