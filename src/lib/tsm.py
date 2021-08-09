@@ -20,6 +20,14 @@ def getTsmClients():
 
 class TsmClient:
 
+    DEFAULT_ENV_USERNAME_VARIABLE = 'TSM_USERNAME'
+    DEFAULT_ENV_PASSWORD_VARIABLE = 'TSM_PASSWORD'
+    DEFAULT_TSM_PORT = '1500'
+    TIMEOUT_IN_SECONDS = 300
+    WINDOWS_SYSTEMS = ['Windows']
+    MAC_SYSTEMS = ['Darwin']
+    UNIX_SYSTEMS = ['SunOS']
+
     def __init__(self, ip, **configs):
         try:
             ip_address(ip)
@@ -27,7 +35,6 @@ class TsmClient:
             raise TypeError(
                 'We was expecting a valid IP address. {} given'.format(ip))
 
-        self.__setConsts()
         self.ip = ip
         self.port = configs.pop('port', self.DEFAULT_TSM_PORT)
         self.user = configs.pop('username', environ.get(
@@ -43,24 +50,15 @@ class TsmClient:
         for config, value in configs.items():
             _.set_(self, config, value)
 
-        _.set_(self.BASE_DSMADMC_OPTIONS, 'id', self.user)
-        _.set_(self.BASE_DSMADMC_OPTIONS, 'password', self.password)
-        _.set_(self.BASE_DSMADMC_OPTIONS, 'TCPServeraddress', self.ip)
-        _.set_(self.BASE_DSMADMC_OPTIONS, 'tcpport', self.port)
-
-    def __setConsts(self):
-        self.DEFAULT_ENV_USERNAME_VARIABLE = 'TSM_USERNAME'
-        self.DEFAULT_ENV_PASSWORD_VARIABLE = 'TSM_PASSWORD'
-        self.DEFAULT_TSM_PORT = '1500'
-        self.BASE_DSMADMC_OPTIONS = {
+        baseDsmadmcOptions = {
             'noconf': True,
             'comma': True,
             'dataonly': 'yes'
         }
-        self.TIMEOUT_IN_SECONDS = 300
-        self.WINDOWS_SYSTEMS = ['Windows']
-        self.MAC_SYSTEMS = ['Darwin']
-        self.UNIX_SYSTEMS = ['SunOS']
+        _.set_(self.baseDsmadmcOptions, 'id', self.user)
+        _.set_(self.baseDsmadmcOptions, 'password', self.password)
+        _.set_(self.baseDsmadmcOptions, 'TCPServeraddress', self.ip)
+        _.set_(self.baseDsmadmcOptions, 'tcpport', self.port)
 
     def __getDsmadmcBinaryPath(self):
         os = system()
@@ -101,7 +99,7 @@ class TsmClient:
 
         runResponse = None
 
-        dsmadmcOptions = self.BASE_DSMADMC_OPTIONS
+        dsmadmcOptions = self.baseDsmadmcOptions
         outfileProperty = {'outfile': outfile} if outfile else {}
         _.assign(dsmadmcOptions, outfileProperty, options)
         dsmadmcOptions = _.map_(dsmadmcOptions, self.__getDsmadmcOptionsString)
