@@ -2,6 +2,7 @@ import pydash as _
 from os import environ, chdir, getcwd
 from platform import system
 from ipaddress import ip_address
+from ping3 import ping
 from subprocess import run, check_output, TimeoutExpired
 from common.attributes import getRequired
 from common.config import getConfig
@@ -122,20 +123,17 @@ class TsmClient:
             raise FileNotFoundError(message)
         except Exception as err:
             print(err)
-            try:
-                run('ping {}'.format(self.ip), shell=True,
-                    timeout=self.TIMEOUT_IN_SECONDS)
-            except TimeoutExpired:
+            isAlive = ping(dest_addr=self.ip)
+            if not isAlive:
                 message = 'Bad news, the TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
                 if failRaises:
                     raise TimeoutError(message)
-                print(message)
-            except Exception as err:
+            else:
                 message = 'Bad news, the command did not run successfully. This is the message: {}'.format(
                     err)
                 if failRaises:
                     raise Exception(message)
-                print(message)
+            print(message)
 
         return runResponse
 
