@@ -1,0 +1,5 @@
+libraries:
+  - LIB_LTO6
+  - LIB_LTO5
+  - LIB_LTO4
+tapesMaxNumber: 6

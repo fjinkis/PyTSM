@@ -199,9 +199,15 @@ class TsmClient:
 
         return response
 
-    def getFullTapes(self, failRaises=True, outfile=None):
+    def getFullTapes(self, libraries, failRaises=True, outfile=None):
+        if not libraries:
+            raise ValueError(
+                'Remember that we need the library list to look up for full tapes')
         response = None
-        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND (libvolumes.library_name='LIB_LTO6' OR libvolumes.library_name='LIB_LTO5') AND volumes.status='FULL' AND pct_utilized>81 ORDER BY library_name, pct_utilized"
+        librariesCondition = 'libvolumes.library_name LIKE {}'.format(
+            ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
+        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>81 ORDER BY library_name, pct_utilized".format(
+            librariesCondition)
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
         headers = ['library', 'volume', 'utilized']
         transformFunction = self.__getFunctionToTransformRowToObject(
