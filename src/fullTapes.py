@@ -13,7 +13,7 @@ for tsmClient in tsmClients:
     libraries = getRequired(config, 'libraries')
     response = tsmClient.getFullTapes(libraries)
     tapesGrupedByLibrary = _.group_by(response, 'library')
-    for library, tapes in tapesGrupedByLibrary:
+    for library, tapes in tapesGrupedByLibrary.items():
         print('')
         print('Remove the following {} tapes'.format(library))
         print(
