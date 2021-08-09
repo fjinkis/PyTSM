@@ -1,23 +1,5 @@
-from yaml import safe_load
 import pydash as _
-from tsm import TsmClient
-
-
-def getRequired(object, path, pop=False):
-    if pop:
-        value = object.pop(path)
-    else:
-        value = object.get(path)
-    if not value:
-        raise Exception('{} was not found and it is required'.format(path))
-
-    return value
-
-
-def createEach(tsmDetails):
-    ip = getRequired(tsmDetails, 'ip', pop=True)
-    port = tsmDetails.pop('port', '1500')
-    return TsmClient(ip, port=port, **tsmDetails)
+from lib.tsm import getTsmClients
 
 
 def calculateSummaryLine(responses, isDB):
@@ -38,10 +20,6 @@ def calculateSummaryLine(responses, isDB):
     ]
 
 
-config = None
-with open('tsmReporterConfig.yaml') as configFile:
-    config = safe_load(configFile)
-
 FIRST_HOUR_RANGE = 0
 LAST_HOUR_RANGE = -1
 endTimeList = [
@@ -52,15 +30,16 @@ endTimeList = [
     '06:00',
     '07:45'
 ]
-tsmServers = _.map_(config.get('tsmServers', []), createEach)
+
 tsmCommandOptions = {
     'begind': '-1',
     'begint': '18:00'
 }
 results = {}
+tsmClients = getTsmClients()
 for endTime in endTimeList:
     responses = []
-    for tsmClient in tsmServers:
+    for tsmClient in tsmClients:
         print('-------------------------------------------------')
         print('We will retrive the events from 18:00 to {}'.format(endTime))
         if endTime == endTimeList[FIRST_HOUR_RANGE]:

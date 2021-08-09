@@ -3,6 +3,18 @@ from os import environ, chdir, getcwd
 from platform import system
 from ipaddress import ip_address
 from subprocess import run, check_output, TimeoutExpired
+from common.attributes import getRequired
+from common.config import getConfig
+
+
+def getTsmClients():
+    def createEach(tsmDetails):
+        ip = getRequired(tsmDetails, 'ip', pop=True)
+        port = tsmDetails.pop('port', '1500')
+        return TsmClient(ip, port=port, **tsmDetails)
+
+    config = getConfig('../config/tsmConfig.yaml')
+    return _.map_(config.get('tsmServers', []), createEach)
 
 
 class TsmClient:
@@ -184,5 +196,17 @@ class TsmClient:
                 headers)
             response = _.map_(
                 runResponse.splitlines(), lambda row: transformFunction(row))
+
+        return response
+
+    def getFullTapes(self, failRaises=True, outfile=None):
+        response = None
+        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND (libvolumes.library_name='LIB_LTO6' OR libvolumes.library_name='LIB_LTO5') AND volumes.status='FULL' AND pct_utilized>81 ORDER BY library_name, pct_utilized"
+        runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
+        headers = ['library', 'volume', 'utilized']
+        transformFunction = self.__getFunctionToTransformRowToObject(
+            headers)
+        response = _.map_(
+            runResponse.splitlines(), lambda row: transformFunction(row))
 
         return response
