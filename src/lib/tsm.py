@@ -50,7 +50,7 @@ class TsmClient:
         for config, value in configs.items():
             _.set_(self, config, value)
 
-        baseDsmadmcOptions = {
+        self.baseDsmadmcOptions = {
             'noconf': True,
             'comma': True,
             'dataonly': 'yes'
