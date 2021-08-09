@@ -17,4 +17,4 @@ for tsmClient in tsmClients:
         print('')
         print('Remove the following {} tapes'.format(library))
         print(
-            '\n'.join(_.map_(tapesGrupedByLibrary[library][-tapesMaxNumber:], 'volume')))
+            '\n'.join(_.map_(tapes[-tapesMaxNumber:], 'volume')))
