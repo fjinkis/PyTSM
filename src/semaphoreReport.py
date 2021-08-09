@@ -33,7 +33,8 @@ endTimeList = [
 
 tsmCommandOptions = {
     'begind': '-1',
-    'begint': '18:00'
+    'begint': '18:00',
+    'endd': 'today'
 }
 results = {}
 tsmClients = getTsmClients()
@@ -43,11 +44,8 @@ for endTime in endTimeList:
         print('-------------------------------------------------')
         print('We will retrive the events from 18:00 to {}'.format(endTime))
         if endTime == endTimeList[FIRST_HOUR_RANGE]:
-            _.set_(tsmCommandOptions, 'endd', 'today')
-            _.set_(tsmCommandOptions, 'endt', endTime)
-        else:
             _.set_(tsmCommandOptions, 'endd', '-1')
-            _.set_(tsmCommandOptions, 'endt', endTime)
+        _.set_(tsmCommandOptions, 'endt', endTime)
         response = tsmClient.runQueryEvent(**tsmCommandOptions)
         responses = _.concat(responses, response)
     _.set_(results, endTime, response)
