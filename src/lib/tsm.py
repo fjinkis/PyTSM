@@ -20,19 +20,6 @@ def getTsmClients():
 
 class TsmClient:
 
-    DEFAULT_ENV_USERNAME_VARIABLE = 'TSM_USERNAME'
-    DEFAULT_ENV_PASSWORD_VARIABLE = 'TSM_PASSWORD'
-    DEFAULT_TSM_PORT = '1500'
-    BASE_DSMADMC_OPTIONS = {
-        'noconf': True,
-        'comma': True,
-        'dataonly': 'yes'
-    }
-    TIMEOUT_IN_SECONDS = 300
-    WINDOWS_SYSTEMS = ['Windows']
-    MAC_SYSTEMS = ['Darwin']
-    UNIX_SYSTEMS = ['SunOS']
-
     def __init__(self, ip, **configs):
         try:
             ip_address(ip)
@@ -40,6 +27,7 @@ class TsmClient:
             raise TypeError(
                 'We was expecting a valid IP address. {} given'.format(ip))
 
+        self.__setConsts()
         self.ip = ip
         self.port = configs.pop('port', self.DEFAULT_TSM_PORT)
         self.user = configs.pop('username', environ.get(
@@ -59,6 +47,20 @@ class TsmClient:
         _.set_(self.BASE_DSMADMC_OPTIONS, 'password', self.password)
         _.set_(self.BASE_DSMADMC_OPTIONS, 'TCPServeraddress', self.ip)
         _.set_(self.BASE_DSMADMC_OPTIONS, 'tcpport', self.port)
+
+    def __setConsts(self):
+        self.DEFAULT_ENV_USERNAME_VARIABLE = 'TSM_USERNAME'
+        self.DEFAULT_ENV_PASSWORD_VARIABLE = 'TSM_PASSWORD'
+        self.DEFAULT_TSM_PORT = '1500'
+        self.BASE_DSMADMC_OPTIONS = {
+            'noconf': True,
+            'comma': True,
+            'dataonly': 'yes'
+        }
+        self.TIMEOUT_IN_SECONDS = 300
+        self.WINDOWS_SYSTEMS = ['Windows']
+        self.MAC_SYSTEMS = ['Darwin']
+        self.UNIX_SYSTEMS = ['SunOS']
 
     def __getDsmadmcBinaryPath(self):
         os = system()
