@@ -1,15 +1,23 @@
 import pydash as _
 from lib.tsm import getTsmClients
+from datetime import datetime, timedelta
 
 
 def calculateSummaryLine(responses, isDB):
     validCategories = ['Completed', 'Started', 'Missed', 'Failed']
+
+    def filterDBs(row):
+        node = _.lower_case(row['node'])
+        return ('SQL' in node or 'TDP' in node or 'DB2' in node or 'exchange' in node) and row['status'] in validCategories
+
+    def filterFSs(row):
+        node = _.lower_case(row['node'])
+        return not ('SQL' in node or 'TDP' in node or 'DB2' in node or 'exchange' in node) and row['status'] in validCategories
+
     if isDB:
-        filteredResults = _.filter_(
-            responses, lambda row: 'TDP' in row['node'] and 'LOG' not in row['schedule'] and row['status'] in validCategories)
+        filteredResults = _.filter_(responses, filterDBs)
     else:
-        filteredResults = _.filter_(
-            responses, lambda row: 'TDP' not in row['node'] and 'LOG' not in row['schedule'] and row['status'] in validCategories)
+        filteredResults = _.filter_(responses, filterFSs)
 
     resultsGropedByStatus = _.group_by(filteredResults, 'status')
     return [
@@ -18,6 +26,36 @@ def calculateSummaryLine(responses, isDB):
         str(len(resultsGropedByStatus.get('Missed', [])) +
             len(resultsGropedByStatus.get('Failed', [])))
     ]
+
+
+def removeInvalidRows(row):
+    scheduleName = _.lower_case(row.schedule)
+    nodeName = _.lower_case(row.node)
+    scheduleIsNotLogOrQa = not ('qa' in scheduleName or 'log' in scheduleName)
+    nodeIsNotVcenter = not 'vcenter_dm' in nodeName
+    nodeIsNotLgOrSMD = not (_.ends_with('_lg', nodeName) or _.ends_with(
+        '_s', nodeName) or _.ends_with('_d', nodeName) or _.ends_with('_m', nodeName))
+    return scheduleIsNotLogOrQa and nodeIsNotLgOrSMD and nodeIsNotVcenter
+
+
+def removeDuplicates(table):
+    nodesSeen = []
+    NO_DIFFERENCE = 0
+    for row in table:
+        currentNodeName = row["node"]
+        rowIndexAlreadySeen = _.find_index(
+            nodesSeen, {"node": currentNodeName})
+        if rowIndexAlreadySeen:
+            currentDate = datetime(row["start"], '%d.%m.%Y %H:%M:%S')
+            nodeSeenDate = datetime(
+                nodesSeen[rowIndexAlreadySeen]["start"], '%d.%m.%Y %H:%M:%S')
+            currentRowIsNewer = timedelta.total_seconds(
+                currentDate-nodeSeenDate) > NO_DIFFERENCE
+            if currentRowIsNewer:
+                nodesSeen.pop(rowIndexAlreadySeen)
+                nodesSeen.append(row)
+        else:
+            nodesSeen.append(currentDate)
 
 
 FIRST_HOUR_RANGE = 0
@@ -47,9 +85,12 @@ for endTime in endTimeList:
         else:
             _.set_(tsmCommandOptions, 'endd', 'today')
         _.set_(tsmCommandOptions, 'endt', endTime)
-        response = tsmClient.runQueryEvent(**tsmCommandOptions)
-        responses = _.concat(responses, response)
-    _.set_(results, endTime, response)
+        rawResponse = tsmClient.runQueryEvent(**tsmCommandOptions)
+        rawResponseFiltered = _.filter_(rawResponse, removeInvalidRows)
+        rawResponseFilteredWithoutDuplicates = removeDuplicates(
+            rawResponseFiltered)
+        responses = _.concat(responses, rawResponseFilteredWithoutDuplicates)
+    _.set_(results, endTime, responses)
 
 summary = []
 for endTime, responses in results.items():
