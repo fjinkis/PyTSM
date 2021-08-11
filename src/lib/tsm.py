@@ -1,20 +1,21 @@
 import pydash as _
-from os import environ, chdir, getcwd
+import os
+import ping3
+import subprocess
 from platform import system
 from ipaddress import ip_address
-from ping3 import ping
-from subprocess import run, check_output, TimeoutExpired
 from common.attributes import getRequired
 from common.config import getConfig
 
 
-def getTsmClients():
+def getTsmClients(configFile=None):
     def createEach(tsmDetails):
         ip = getRequired(tsmDetails, 'ip', pop=True)
         port = tsmDetails.pop('port', '1500')
         return TsmClient(ip, port=port, **tsmDetails)
 
-    config = getConfig('../config/tsmConfig.yaml')
+    config = configFile if configFile else getConfig(
+        '../config/tsmConfig.yaml')
     return _.map_(config.get('tsmServers', []), createEach)
 
 
@@ -37,28 +38,28 @@ class TsmClient:
 
         self.ip = ip
         self.port = configs.pop('port', self.DEFAULT_TSM_PORT)
-        self.user = configs.pop('username', environ.get(
+        self.user = configs.pop('username', os.environ.get(
             self.DEFAULT_ENV_USERNAME_VARIABLE))
-        self.password = configs.pop('password', environ.get(
+        self.__password = configs.pop('password', os.environ.get(
             self.DEFAULT_ENV_PASSWORD_VARIABLE))
-        self.__pwd = getcwd()
-        self.__binPath = configs.pop('binPath', self.__getDsmadmcBinaryPath())
-        if _.some([self.port, self.user, self.password], _.is_none):
+        self.__pwd = os.getcwd()
+        self.binPath = configs.pop('binPath', self.__getDsmadmcBinaryPath())
+        if _.some([self.port, self.user, self.__password], _.is_none):
             raise TypeError('We need the username and password. By default this program takes the environment variables {} and {} but it seems like they were not defined'.format(
                 self.DEFAULT_ENV_USERNAME_VARIABLE, self.DEFAULT_ENV_PASSWORD_VARIABLE))
 
         for config, value in configs.items():
             _.set_(self, config, value)
 
-        self.baseDsmadmcOptions = {
+        self.__baseDsmadmcOptions = {
             'noconf': True,
             'comma': True,
             'dataonly': 'yes'
         }
-        _.set_(self.baseDsmadmcOptions, 'id', self.user)
-        _.set_(self.baseDsmadmcOptions, 'password', self.password)
-        _.set_(self.baseDsmadmcOptions, 'TCPServeraddress', self.ip)
-        _.set_(self.baseDsmadmcOptions, 'tcpport', self.port)
+        _.set_(self.__baseDsmadmcOptions, 'id', self.user)
+        _.set_(self.__baseDsmadmcOptions, 'password', self.__password)
+        _.set_(self.__baseDsmadmcOptions, 'TCPServeraddress', self.ip)
+        _.set_(self.__baseDsmadmcOptions, 'tcpport', self.port)
 
     def __getDsmadmcBinaryPath(self):
         os = system()
@@ -80,17 +81,20 @@ class TsmClient:
     def __getTsmOptionsString(self, value, key):
         return '{}'.format(key) if _.is_boolean(value) else '{}={}'.format(key, value)
 
-    def __getFunctionToTransformRowToObject(self, headers):
+    def __getResponseAsObjects(self, headers, runResponse):
+        FIRST_ELEMENT = 0
+
         def transformRowToObject(row):
             objectToReturn = {}
             values = row.split(',')
             for head in headers:
-                value = values.pop(0)
+                value = values.pop(FIRST_ELEMENT)
                 _.set_(objectToReturn, head, value)
 
             return objectToReturn
 
-        return transformRowToObject
+        return _.map_(
+            runResponse.splitlines(), lambda row: transformRowToObject(row))
 
     def run(self, command, failRaises=True, outfile=None, **options):
         if not command or not _.is_string(command):
@@ -99,7 +103,7 @@ class TsmClient:
 
         runResponse = None
 
-        dsmadmcOptions = self.baseDsmadmcOptions
+        dsmadmcOptions = self.__baseDsmadmcOptions
         outfileProperty = {'outfile': outfile} if outfile else {}
         _.assign(dsmadmcOptions, outfileProperty, options)
         dsmadmcOptions = _.map_(dsmadmcOptions, self.__getDsmadmcOptionsString)
@@ -108,22 +112,22 @@ class TsmClient:
             ' '.join(dsmadmcOptions), command)
 
         try:
-            chdir(self.__binPath)
+            os.chdir(self.binPath)
             print('We are attempting to run: "{}"'.format(command))
             if outfile:
-                run(currentdsmadmcCommand, shell=True,
-                    timeout=self.TIMEOUT_IN_SECONDS)
+                subprocess.run(currentdsmadmcCommand, shell=True,
+                               timeout=self.TIMEOUT_IN_SECONDS)
             else:
-                runResponse = check_output(currentdsmadmcCommand,
-                                           shell=True, encoding='utf-8')
-            chdir(self.__pwd)
+                runResponse = subprocess.check_output(currentdsmadmcCommand,
+                                                      shell=True, encoding='utf-8')
+            os.chdir(self.__pwd)
         except FileNotFoundError as err:
             message = 'Check where is the executable dsmadmc file. It seems like is not in {}'.format(
-                self.__binPath)
+                self.binPath)
             raise FileNotFoundError(message)
         except Exception as err:
             print(err)
-            isAlive = ping(dest_addr=self.ip)
+            isAlive = ping3.ping(dest_addr=self.ip)
             if not isAlive:
                 message = 'Bad news, the TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
                 if failRaises:
@@ -145,10 +149,7 @@ class TsmClient:
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
         if runResponse:
             headers = ['scheduled_at', 'start', 'schedule', 'node', 'status']
-            transformFunction = self.__getFunctionToTransformRowToObject(
-                headers)
-            response = _.map_(
-                runResponse.splitlines(), lambda row: transformFunction(row))
+            response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
 
@@ -159,10 +160,7 @@ class TsmClient:
         if runResponse:
             headers = ['library', 'volume', 'status',
                        'owner', 'last_use', 'home' 'device']
-            transformFunction = self.__getFunctionToTransformRowToObject(
-                headers)
-            response = _.map_(
-                runResponse.splitlines(), lambda row: transformFunction(row))
+            response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
 
@@ -175,10 +173,7 @@ class TsmClient:
         if runResponse:
             headers = ['name', 'pool', 'device_class',
                        'capacity', 'utilization', 'status']
-            transformFunction = self.__getFunctionToTransformRowToObject(
-                headers)
-            response = _.map_(
-                runResponse.splitlines(), lambda row: transformFunction(row))
+            response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
 
@@ -190,10 +185,7 @@ class TsmClient:
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
         if runResponse:
             headers = ['process', 'description', 'status']
-            transformFunction = self.__getFunctionToTransformRowToObject(
-                headers)
-            response = _.map_(
-                runResponse.splitlines(), lambda row: transformFunction(row))
+            response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
 
@@ -207,10 +199,8 @@ class TsmClient:
         command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>81 ORDER BY library_name, pct_utilized".format(
             librariesCondition)
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
-        headers = ['library', 'volume', 'utilized']
-        transformFunction = self.__getFunctionToTransformRowToObject(
-            headers)
-        response = _.map_(
-            runResponse.splitlines(), lambda row: transformFunction(row))
+        if runResponse:
+            headers = ['library', 'volume', 'utilized']
+            response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
