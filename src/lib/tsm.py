@@ -76,10 +76,19 @@ class TsmClient:
         return binPath
 
     def __getDsmadmcOptionsString(self, value, key):
-        return '-{}'.format(key) if _.is_boolean(value) else '-{}={}'.format(key, value)
+        optionToReturn = ''
+        if value:
+            optionToReturn = '-{}'.format(key) if _.is_boolean(
+                value) else '-{}={}'.format(key, value)
+
+        return optionToReturn
 
     def __getTsmOptionsString(self, value, key):
-        return '{}'.format(key) if _.is_boolean(value) else '{}={}'.format(key, value)
+        optionToReturn = ''
+        if value:
+            return '{}'.format(key) if _.is_boolean(value) else '{}={}'.format(key, value)
+
+        return optionToReturn
 
     def __getResponseAsObjects(self, headers, runResponse):
         FIRST_ELEMENT = 0
@@ -106,7 +115,8 @@ class TsmClient:
         dsmadmcOptions = self.__baseDsmadmcOptions
         outfileProperty = {'outfile': outfile} if outfile else {}
         _.assign(dsmadmcOptions, outfileProperty, options)
-        dsmadmcOptions = _.map_(dsmadmcOptions, self.__getDsmadmcOptionsString)
+        dsmadmcOptions = _.compact(
+            _.map_(dsmadmcOptions, self.__getDsmadmcOptionsString))
 
         currentdsmadmcCommand = 'dsmadmc {} "{}"'.format(
             ' '.join(dsmadmcOptions), command)
@@ -143,7 +153,7 @@ class TsmClient:
 
     def runQueryEvent(self, domain='*', schedule='*', failRaises=True, outfile=None, **options):
         response = None
-        currentOptions = _.map_(options, self.__getTsmOptionsString)
+        currentOptions = _.compact(_.map_(options, self.__getTsmOptionsString))
         command = 'query event {} {} {}'.format(
             domain, schedule, ' '.join(currentOptions))
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
@@ -166,7 +176,7 @@ class TsmClient:
 
     def runQueryVolume(self, volume='*', failRaises=True, outfile=None, **options):
         response = None
-        currentOptions = _.map_(options, self.__getTsmOptionsString)
+        currentOptions = _.compact(_.map_(options, self.__getTsmOptionsString))
         command = 'query volume {} {}'.format(
             volume, ' '.join(currentOptions))
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
@@ -179,7 +189,7 @@ class TsmClient:
 
     def runQueryProcess(self, process='', failRaises=True, outfile=None, **options):
         response = None
-        currentOptions = _.map_(options, self.__getTsmOptionsString)
+        currentOptions = _.compact(_.map_(options, self.__getTsmOptionsString))
         command = 'query process {} {}'.format(
             process, ' '.join(currentOptions))
         runResponse = self.run(command, failRaises=failRaises, outfile=outfile)
