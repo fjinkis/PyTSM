@@ -4,3 +4,11 @@ pydash==5.0.2
 PyYAML==5.4.1
 toml==0.10.2
 ping3==3.0.0
+attrs==21.2.0
+iniconfig==1.1.1
+mock==4.0.3
+packaging==21.0
+pluggy==0.13.1
+py==1.10.0
+pyparsing==2.4.7
+pytest==6.2.4
