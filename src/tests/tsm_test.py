@@ -57,7 +57,7 @@ class TestTsmClient:
             except Exception as err:
                 pytest.raises(AttributeError)
 
-    def test_output_is_object(self, getTsmClient):
+    def test_output_should_succeed_if_is_object(self, getTsmClient):
         client = tsm.TsmClient(**getTsmClient)
         headers = ['c1', 'c2', 'c3']
 
@@ -77,18 +77,40 @@ class TestTsmClient:
 
     @patch("os.chdir")
     @patch('subprocess.check_output')
-    def test_run(self, mock_check, mock_chdir, getTsmClient):
+    def test_run_should_succeed(self, mock_check, mock_chdir, getTsmClient):
         mock_chdir.return_value = True
-        mock_check.return_value = '1,2,3\n11,22,33'
+        mock_check.return_value = '1,2,3\n11,22,33'.encode('utf-8')
         client = tsm.TsmClient(**getTsmClient)
         output = client.run('command')
         assert output == '1,2,3\n11,22,33'
 
-    # @patch("os.chdir")
-    # @patch('subprocess.check_output')
-    # def test_run(self, mock_check, mock_chdir, getTsmClient):
-    #     mock_chdir.return_value = True
-    #     mock_check.return_value = '1,2,3\n11,22,33'
-    #     client = tsm.TsmClient(**getTsmClient)
-    #     output = client.run('command')
-    #     assert output == '1,2,3\n11,22,33'
+    @patch("os.chdir")
+    @patch('subprocess.check_output')
+    def test_run_should_succeed_as_object(self, mock_check, mock_chdir, getTsmClient):
+        mock_chdir.return_value = True
+        mock_check.return_value = '1,2,3\n11,22,33'.encode('utf-8')
+        client = tsm.TsmClient(**getTsmClient)
+        output = client.run('command', config={'headers': ['a', 'b', 'c']})
+        assert output == [{'a': '1', 'b': '2', 'c': '3'},
+                          {'a': '11', 'b': '22', 'c': '33'}]
+
+    @patch("os.chdir")
+    @patch('subprocess.check_output')
+    def test_run_should_fail_with_tsm_error(self, mock_check, mock_chdir, getTsmClient):
+        mock_chdir.return_value = True
+        mock_check.return_value = 'ANR1234X whatever'.encode('utf-8')
+        client = tsm.TsmClient(**getTsmClient)
+        try:
+            output = client.run('command', failRaises=True)
+            assert False
+        except RuntimeError as err:
+            pytest.raises(RuntimeError)
+
+    @patch('subprocess.check_output')
+    def test_run_should_fail_without_binary(self, mock_check, getTsmClient):
+        client = tsm.TsmClient(**getTsmClient)
+        try:
+            output = client.run('command', failRaises=True)
+            assert False
+        except FileNotFoundError as err:
+            pytest.raises(FileNotFoundError)
