@@ -1,3 +1,4 @@
+from re import match
 import pydash as _
 import os
 import ping3
@@ -28,6 +29,7 @@ class TsmClient:
     WINDOWS_SYSTEMS = ['Windows']
     MAC_SYSTEMS = ['Darwin']
     UNIX_SYSTEMS = ['SunOS']
+    ERROR_MESSAGE_PATTERN = r'(ANE|ANR)\d{4}[A-Za-z]'
 
     def __init__(self, ip, **configs):
         try:
@@ -105,6 +107,20 @@ class TsmClient:
         return _.map_(
             runResponse.splitlines(), lambda row: transformRowToObject(row))
 
+    '''
+    Runs a command in TSM
+    Parameters:
+        command (str) TSM command to run
+        failRaises (bool) Determinates if the object will raise an error if the command has an non-cero status code. Default is True
+        v (string|None) Determinates if the output will be redirected to a file. Default is None
+        options (dict) extra options to define. This param has as many keys as dsmadmc's options and additionaly it could be defined a config key whose dict value will change some behaviors:
+            headers->list could be defined to return the response in a dict format
+            isAlive->bool to try with a simple ping if the server is alive after an exception
+
+    Returns
+        (dict|string|None) command response. It could be None if the outfile option was defined
+    '''
+
     def run(self, command, failRaises=True, outfile=None, **options):
         if not command or not _.is_string(command):
             raise ValueError(
@@ -113,6 +129,7 @@ class TsmClient:
         runResponse = None
 
         dsmadmcOptions = self.__baseDsmadmcOptions
+        extraConfig = options.pop('config', None)
         outfileProperty = {'outfile': outfile} if outfile else {}
         _.assign(dsmadmcOptions, outfileProperty, options)
         dsmadmcOptions = _.compact(
@@ -128,26 +145,40 @@ class TsmClient:
                 subprocess.run(currentdsmadmcCommand, shell=True,
                                timeout=self.TIMEOUT_IN_SECONDS)
             else:
-                runResponse = subprocess.check_output(currentdsmadmcCommand,
-                                                      shell=True, encoding='utf-8')
+                rawResponse = subprocess.check_output(
+                    currentdsmadmcCommand, shell=True)
+                runResponse = rawResponse.decode('utf-8', errors='ignore')
+                if match(self.ERROR_MESSAGE_PATTERN, runResponse):
+                    raise RuntimeError(runResponse)
+                if extraConfig:
+                    headers = extraConfig.get('headers')
+                    if headers:
+                        runResponse = self.__getResponseAsObjects(
+                            headers, runResponse)
             os.chdir(self.__pwd)
         except FileNotFoundError as err:
             message = 'Check where is the executable dsmadmc file. It seems like is not in {}'.format(
                 self.binPath)
             raise FileNotFoundError(message)
-        except Exception as err:
-            print(err)
-            isAlive = ping3.ping(dest_addr=self.ip)
-            if not isAlive:
-                message = 'Bad news, the TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
-                if failRaises:
-                    raise TimeoutError(message)
-            else:
-                message = 'Bad news, the command did not run successfully. This is the message: {}'.format(
-                    err)
-                if failRaises:
-                    raise Exception(message)
+        except RuntimeError as err:
+            message = 'Bad news, the command did not run successfully. This is the message: {}'.format(
+                err)
             print(message)
+            if failRaises:
+                raise RuntimeError(message)
+        except Exception as err:
+            message = 'Unfortunately something not expected happened!. This is the message: {}'.format(
+                err)
+            print(message)
+            if extraConfig:
+                if extraConfig.get('isAlive'):
+                    isAlive = ping3.ping(dest_addr=self.ip)
+                    if not isAlive:
+                        message = 'The TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
+                        if failRaises:
+                            raise TimeoutError(message)
+            if failRaises:
+                raise Exception(message)
 
         return runResponse
 
