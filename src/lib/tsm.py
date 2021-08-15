@@ -29,7 +29,7 @@ class TsmClient:
     WINDOWS_SYSTEMS = ['Windows']
     MAC_SYSTEMS = ['Darwin']
     UNIX_SYSTEMS = ['SunOS']
-    ERROR_MESSAGE_PATTERN = r'(ANE|ANR)\d{4}[A-Za-z]'
+    ERROR_MESSAGE_PATTERN = r'(ANE|ANR)\d{4}E'
 
     def __init__(self, ip, **configs):
         try:
