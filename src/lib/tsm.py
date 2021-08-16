@@ -237,7 +237,7 @@ class TsmClient:
         response = None
         librariesCondition = 'libvolumes.library_name LIKE {}'.format(
             ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
-        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>{} ORDER BY library_name, pct_utilized".format(
+        command = "SELECT library_name, volumes.volume_name FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>{} ORDER BY library_name, pct_utilized".format(
             librariesCondition, minPctUtilization)
         runResponse = self.run(command, failRaises=False,
                                outfile=outfile, **config)
@@ -262,8 +262,8 @@ class TsmClient:
                                      outfile=outfile, **config)
         if librariesResponse:
             headers = ['library', 'volume']
-            response["Move data of"] = self.__getResponseAsObjects(
-                headers, librariesResponse)
+            _.set_(response, "Move data of", self.__getResponseAsObjects(
+                headers, librariesResponse))
 
         print('Now, we are retrieving tapes to mount')
         commandCondition = 'volumes.devclass_name LIKE {}'.format(
@@ -274,7 +274,7 @@ class TsmClient:
                                    outfile=outfile, **config)
         if devicesResponse:
             headers = ['library', 'volume']
-            response["Mount"] = self.__getResponseAsObjects(
-                headers, devicesResponse)
+            _.set_(response, "Mount", self.__getResponseAsObjects(
+                headers, devicesResponse))
 
         return response
