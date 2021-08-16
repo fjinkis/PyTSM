@@ -242,7 +242,7 @@ class TsmClient:
         runResponse = self.run(command, failRaises=False,
                                outfile=outfile, **config)
         if runResponse:
-            headers = ['library', 'volume', 'utilized']
+            headers = ['library', 'volume']
             response = self.__getResponseAsObjects(headers, runResponse)
 
         return response

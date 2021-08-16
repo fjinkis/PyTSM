@@ -25,6 +25,7 @@ for tsmClient in tsmClients:
         print(
             '\n'.join(_.map_(tapes, 'volume')[-tapesMaxNumber:]))
 
+    print('')
     # Mount/MoveData
     response = tsmClient.getEmptyTapes(libraries, config.get(
         'MAX_PCT_UTILIZATION', MAX_PCT_UTILIZATION))
