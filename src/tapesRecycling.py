@@ -32,7 +32,7 @@ for tsmClient in tsmClients:
     for library, tapes in tapesGrupedByLibrary.items():
         tapesGrupedByState = _.group_by(tapes, 'state')
         for state, tapesInState in tapesGrupedByState.items():
-            action = 'Move the data for' if 'not' in state else 'Mount'
+            action = 'Mount' if 'not' in state else 'Move the data for'
             print('')
             print('{} the following {} tapes'.format(action, library))
             print(
