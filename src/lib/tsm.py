@@ -256,10 +256,8 @@ class TsmClient:
             _.map_(libraries, lambda value: "'%{}%'".format(value)))
         devicesLike = ' OR volumes.devclass_name LIKE '.join(
             _.map_(libraries, lambda value: "'%{}%'".format(value)))
-        librariesLike.append(devicesLike)
-
-        librariesCondition = 'libvolumes.library_name LIKE {}'.format(
-            librariesLike)
+        librariesCondition = 'libvolumes.library_name LIKE {} OR {}'.format(
+            librariesLike, devicesLike)
         command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name LEFT JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
             librariesCondition, maxPctUtilization)
         runResponse = self.run(command, failRaises=False,
