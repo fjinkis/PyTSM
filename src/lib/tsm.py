@@ -140,8 +140,8 @@ class TsmClient:
 
         try:
             os.chdir(self.binPath)
-            if extraConfig and extraConfig.get('hide_command'):
-                print('We are attempting to run: "{}"'.format(command))
+            if extraConfig and extraConfig.get('hide_command') == None:
+                print('We are attempting to run: \n"{}"'.format(command))
             if outfile:
                 subprocess.run(currentdsmadmcCommand, shell=True,
                                timeout=self.TIMEOUT_IN_SECONDS)
@@ -230,32 +230,34 @@ class TsmClient:
 
         return response
 
-    def getFullTapes(self, libraries, outfile=None):
+    def getFullTapes(self, libraries, minPctUtilization, outfile=None, **config):
         if not libraries:
             raise ValueError(
                 'Remember that we need the library list to look up for full tapes')
         response = None
         librariesCondition = 'libvolumes.library_name LIKE {}'.format(
             ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
-        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>81 ORDER BY library_name, pct_utilized".format(
-            librariesCondition)
-        runResponse = self.run(command, failRaises=False, outfile=outfile)
+        command = "SELECT library_name, volumes.volume_name, pct_utilized FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE media.state LIKE '%Mountable in%' AND ({}) AND volumes.status='FULL' AND pct_utilized>{} ORDER BY library_name, pct_utilized".format(
+            librariesCondition, minPctUtilization)
+        runResponse = self.run(command, failRaises=False,
+                               outfile=outfile, **config)
         if runResponse:
             headers = ['library', 'volume', 'utilized']
             response = self.__getResponseAsObjects(headers, runResponse)
 
         return response
 
-    def getEmptyTapes(self, libraries, outfile=None):
+    def getEmptyTapes(self, libraries, maxPctUtilization, outfile=None, **config):
         if not libraries:
             raise ValueError(
                 'Remember that we need the library list to look up for empty tapes')
         response = None
         librariesCondition = 'libvolumes.library_name LIKE {}'.format(
             ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
-        command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<10 ORDER BY library_name, pct_utilized".format(
-            librariesCondition)
-        runResponse = self.run(command, failRaises=False, outfile=outfile)
+        command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
+            librariesCondition, maxPctUtilization)
+        runResponse = self.run(command, failRaises=False,
+                               outfile=outfile, **config)
         if runResponse:
             headers = ['library', 'volume', 'utilized', 'state']
             response = self.__getResponseAsObjects(headers, runResponse)
