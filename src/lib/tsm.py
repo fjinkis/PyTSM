@@ -252,9 +252,15 @@ class TsmClient:
             raise ValueError(
                 'Remember that we need the library list to look up for empty tapes')
         response = None
+        librariesLike = ' OR libvolumes.library_name LIKE '.join(
+            _.map_(libraries, lambda value: "'%{}%'".format(value)))
+        devicesLike = ' OR volumes.devclass_name LIKE '.join(
+            _.map_(libraries, lambda value: "'%{}%'".format(value)))
+        librariesLike.append(devicesLike)
+
         librariesCondition = 'libvolumes.library_name LIKE {}'.format(
-            ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
-        command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
+            librariesLike)
+        command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name LEFT JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
             librariesCondition, maxPctUtilization)
         runResponse = self.run(command, failRaises=False,
                                outfile=outfile, **config)
