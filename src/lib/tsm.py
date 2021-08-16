@@ -140,7 +140,7 @@ class TsmClient:
 
         try:
             os.chdir(self.binPath)
-            if extraConfig and extraConfig.get('hide_command') == None:
+            if not extraConfig or extraConfig.get('hide_command') == None:
                 print('We are attempting to run: \n"{}"'.format(command))
             if outfile:
                 subprocess.run(currentdsmadmcCommand, shell=True,
