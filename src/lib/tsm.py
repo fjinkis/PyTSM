@@ -140,7 +140,8 @@ class TsmClient:
 
         try:
             os.chdir(self.binPath)
-            print('We are attempting to run: "{}"'.format(command))
+            if extraConfig and extraConfig.get('hide_command'):
+                print('We are attempting to run: "{}"'.format(command))
             if outfile:
                 subprocess.run(currentdsmadmcCommand, shell=True,
                                timeout=self.TIMEOUT_IN_SECONDS)
@@ -170,13 +171,12 @@ class TsmClient:
             message = 'Unfortunately something not expected happened!. This is the message: {}'.format(
                 err)
             print(message)
-            if extraConfig:
-                if extraConfig.get('isAlive'):
-                    isAlive = ping3.ping(dest_addr=self.ip)
-                    if not isAlive:
-                        message = 'The TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
-                        if failRaises:
-                            raise TimeoutError(message)
+            if extraConfig and extraConfig.get('isAlive'):
+                isAlive = ping3.ping(dest_addr=self.ip)
+                if not isAlive:
+                    message = 'The TSM server did not respond and we are not reaching with a simple ping. Maybe it is a network issue'
+                    if failRaises:
+                        raise TimeoutError(message)
             if failRaises:
                 raise Exception(message)
 
