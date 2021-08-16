@@ -251,7 +251,7 @@ class TsmClient:
         if not libraries:
             raise ValueError(
                 'Remember that we need the library list to look up for empty tapes')
-        response = None
+        response = {}
 
         print('We are retrieving tapes to move their data')
         commandCondition = 'libvolumes.library_name LIKE {}'.format(
