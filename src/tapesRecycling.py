@@ -28,12 +28,10 @@ for tsmClient in tsmClients:
     # Mount/MoveData
     response = tsmClient.getEmptyTapes(libraries, config.get(
         'MAX_PCT_UTILIZATION', MAX_PCT_UTILIZATION))
-    tapesGrupedByLibrary = _.group_by(response, 'library')
-    for library, tapes in tapesGrupedByLibrary.items():
-        tapesGrupedByState = _.group_by(tapes, 'state')
-        for state, tapesInState in tapesGrupedByState.items():
-            action = 'Mount' if 'not' in state else 'Move the data for'
+    for action, actionResponse in response.items():
+        tapesGrupedByLibrary = _.group_by(actionResponse, 'library')
+        for library, tapes in tapesGrupedByLibrary.items():
             print('')
             print('{} the following {} tapes'.format(action, library))
             print(
-                '\n'.join(_.map_(tapesInState, 'volume')[:tapesMaxNumber]))
+                '\n'.join(_.map_(tapes, 'volume')[:tapesMaxNumber]))

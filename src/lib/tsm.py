@@ -252,18 +252,29 @@ class TsmClient:
             raise ValueError(
                 'Remember that we need the library list to look up for empty tapes')
         response = None
-        librariesLike = ' OR libvolumes.library_name LIKE '.join(
-            _.map_(libraries, lambda value: "'%{}%'".format(value)))
-        devicesLike = ' OR volumes.devclass_name LIKE '.join(
-            _.map_(libraries, lambda value: "'%{}%'".format(value)))
-        librariesCondition = 'libvolumes.library_name LIKE {} OR {}'.format(
-            librariesLike, devicesLike)
-        command = "SELECT library_name, volumes.volume_name, pct_reclaim, media.state FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name LEFT JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
-            librariesCondition, maxPctUtilization)
-        runResponse = self.run(command, failRaises=False,
-                               outfile=outfile, **config)
-        if runResponse:
-            headers = ['library', 'volume', 'utilized', 'state']
-            response = self.__getResponseAsObjects(headers, runResponse)
+
+        print('We are retrieving tapes to move their data')
+        commandCondition = 'libvolumes.library_name LIKE {}'.format(
+            ' OR libvolumes.library_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
+        command = "SELECT library_name, volumes.volume_name FROM volumes INNER JOIN libvolumes ON volumes.volume_name=libvolumes.volume_name WHERE ({}) AND volumes.status='FULL' AND pct_utilized<{} ORDER BY library_name, pct_utilized".format(
+            commandCondition, maxPctUtilization)
+        librariesResponse = self.run(command, failRaises=False,
+                                     outfile=outfile, **config)
+        if librariesResponse:
+            headers = ['library', 'volume']
+            response["Move data of"] = self.__getResponseAsObjects(
+                headers, librariesResponse)
+
+        print('Now, we are retrieving tapes to mount')
+        commandCondition = 'volumes.devclass_name LIKE {}'.format(
+            ' OR volumes.devclass_name LIKE '.join(_.map_(libraries, lambda value: "'%{}%'".format(value))))
+        command = "SELECT volumes.devclass_name, volumes.volume_name FROM volumes INNER JOIN media ON volumes.volume_name=media.volume_name WHERE ({}) AND media.state LIKE '%not%' AND volumes.status='FULL' AND pct_utilized<{} ORDER BY devclass_name, pct_utilized".format(
+            commandCondition, maxPctUtilization)
+        devicesResponse = self.run(command, failRaises=False,
+                                   outfile=outfile, **config)
+        if devicesResponse:
+            headers = ['library', 'volume']
+            response["Mount"] = self.__getResponseAsObjects(
+                headers, devicesResponse)
 
         return response
